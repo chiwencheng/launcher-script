@@ -84,6 +84,7 @@ function setAntConfigByBranch {
     local DIRECTORY=$2
     if [ -d "$DIRECTORY" ]; then
         cp -r config/${BRANCH}/* ${DIRECTORY}/
+        cp -r config/ant/ ${DIRECTORY}/
         echo "[Success] setup ant build for $DIRECTORY to $BRANCH"
     fi
 }
