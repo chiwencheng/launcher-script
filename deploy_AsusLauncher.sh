@@ -120,6 +120,10 @@ function setExternalAntConfig {
 
 #####################################
 
+echo "[Info] version 1.0"
+
+#####################################
+
 USER_NAME=$(git config user.email | cut -d '@' -f1 | awk '{print tolower($0)}')
 if [ ! -z "${1}" ]; then
     USER_NAME=${1}
