@@ -136,6 +136,10 @@ DIRECTORY_ZenNow="ZenNow_1.0"
 PROJECT_ZenNow="amax_L/packages/sharelibs/ZenNow"
 BRANCH_ZenNow="ZenNow_1.0"
 
+DIRECTORY_AsusUi="AsusUi_0.8"
+PROJECT_AsusUi="amax_L/packages/sharelibs/AsusUi"
+BRANCH_AsusUi="AMAX_android-L"
+
 #####################################
 echo ""
 echo "[Info] Please checkout to target branch first."
@@ -183,6 +187,8 @@ select opt in ${OPTIONS}; do
         setAntConfig ${DIRECTORY_TaskContract}
         syncSourceCode ${DIRECTORY_ZenNow} ${PROJECT_ZenNow} ${BRANCH_ZenNow}
         setAntConfig ${DIRECTORY_ZenNow}
+        syncSourceCode ${DIRECTORY_AsusUi} ${PROJECT_AsusUi} ${BRANCH_AsusUi}
+        setAntConfig ${DIRECTORY_AsusUi}
         break
     else
         echo bad option
