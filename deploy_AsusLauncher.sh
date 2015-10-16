@@ -23,7 +23,7 @@ function checkAndExtractAARfiles {
             AAR_FOR_STUDIO=$(echo ${aar}|cut -d '.' -f1)/$(echo ${aar}|cut -d '/' -f2)
             if diff ${aar} ${AAR_FOR_STUDIO} >/dev/null ; then
                 echo "[Info] $aar and $AAR_FOR_STUDIO same"
-                break;
+                continue;
             else
                 echo "[Info] $aar and $AAR_FOR_STUDIO different"
             fi
