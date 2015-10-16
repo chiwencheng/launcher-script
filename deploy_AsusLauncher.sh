@@ -13,6 +13,28 @@ function syncSourceCode {
     fi
 }
 
+function syncLauncherSourceCode {
+    local DIRECTORY=$1
+    local PROJECT=$2
+    if [ ! -d "$DIRECTORY" ]; then
+        echo "Choose you target branch:"
+        OPTIONS="AsusLauncher_1.4_dev AsusLauncher_1.4_beta AsusLauncher_1.4_play"
+        select opt in ${OPTIONS}; do
+            if [ "$opt" = "AsusLauncher_1.4_dev" ] || [ "$opt" = "AsusLauncher_1.4_beta" ] || [ "$opt" = "AsusLauncher_1.4_play" ]; then
+                echo "[START] sync $DIRECTORY"
+                syncSourceCode ${DIRECTORY} ${PROJECT} ${opt}
+                echo "[Success] sync $DIRECTORY"
+                break
+            else
+                echo bad option
+                exit
+            fi
+        done
+    else
+        echo "[WARN] sync fail, $DIRECTORY exist"
+    fi
+}
+
 function checkAndExtractAARfiles {
     local DIRECTORY=$1
     # aar for ant build and Android Studio
@@ -70,22 +92,29 @@ function checkAndExtractAARfiles {
     fi
 }
 
-function setAntConfig {
+function syncExternalProject {
     local DIRECTORY=$1
     if [ -d "$DIRECTORY" ]; then
-        cp -r config/${DIRECTORY}/* ${DIRECTORY}/
-        mkdir -p ${DIRECTORY}/pre-load
-        echo "[Success] setup ant build for $DIRECTORY"
+        source ${DIRECTORY}/scripts/AntBuild/external/sync.conf
+        for dir in $(ls -d ${DIRECTORY}/scripts/AntBuild/external/*/)
+        do
+            local dirName=$(echo ${dir}|cut -d '/' -f5)
+            local projectName=$(echo ${dirName}|cut -d '_' -f1) # remove version, e.g. _1.0
+            typeset -n directory=DIRECTORY_${projectName}
+            typeset -n branch=BRANCH_${projectName}
+            typeset -n project=PROJECT_${projectName}
+            syncSourceCode ${directory} ${project} ${branch}
+        done
+    else
+        echo "[WARN] sync external project fail, $DIRECTORY exist"
     fi
 }
 
-function setAntConfigByBranch {
-    local BRANCH=$1
-    local DIRECTORY=$2
+function setExternalAntConfig {
+    local DIRECTORY=$1
     if [ -d "$DIRECTORY" ]; then
-        cp -r config/${BRANCH}/* ${DIRECTORY}/
-        cp -r config/ant/ ${DIRECTORY}/
-        echo "[Success] setup ant build for $DIRECTORY to $BRANCH"
+        cp -r ${DIRECTORY}/scripts/AntBuild/external/* .
+        echo "[Success] setup external project ant build config"
     fi
 }
 
@@ -104,96 +133,18 @@ if [ -z "$USER_NAME" ]; then
 fi
 
 #####################################
+
 DIRECTORY_AsusLauncher="AsusLauncher"
 PROJECT_AsusLauncher="amax_L/packages/apps/AsusLauncher"
 
-#external project
-DIRECTORY_UserVoiceSDK="UserVoiceSDK_1.1"
-PROJECT_UserVoiceSDK="amax_L/packages/sharelibs/UserVoiceSDK"
-BRANCH_UserVoiceSDK="UserVoiceSDK_1.0_Android-5.0"
-
-DIRECTORY_AndroidSupportV7Recyclerview="AndroidSupportV7Recyclerview_23.0"
-PROJECT_AndroidSupportV7Recyclerview="amax_L/packages/sharelibs/Android_Support_V7_Recyclerview"
-BRANCH_AndroidSupportV7Recyclerview="android_support_v7_recyclerview_23.0.1"
-
-DIRECTORY_AndroidSupportV7Appcompat="AndroidSupportV7Appcompat_23.0"
-PROJECT_AndroidSupportV7Appcompat="amax_L/packages/sharelibs/Android_Support_V7_Appcompat"
-BRANCH_AndroidSupportV7Appcompat="android_support_v7_appcompat_23.0.1"
-
-DIRECTORY_AndroidSupportV7Cardview="AndroidSupportV7Cardview_23.0"
-PROJECT_AndroidSupportV7Cardview="amax_L/packages/sharelibs/Android_Support_V7_Cardview"
-BRANCH_AndroidSupportV7Cardview="android_support_v7_cardview_23.0.1"
-
-DIRECTORY_AndroidDesignSupport="AndroidDesignSupport_23.0"
-PROJECT_AndroidDesignSupport="amax_L/packages/sharelibs/Android_Support_Design"
-BRANCH_AndroidDesignSupport="android_support_design_23.0.1"
-
-DIRECTORY_TaskContract="TaskContract_2.0"
-PROJECT_TaskContract="amax_L/packages/sharelibs/TaskContract"
-BRANCH_TaskContract="AMAX_android-L"
-
-DIRECTORY_ZenNow="ZenNow_1.0"
-PROJECT_ZenNow="amax_L/packages/sharelibs/ZenNow"
-BRANCH_ZenNow="ZenNow_1.0"
-
-DIRECTORY_AsusUi="AsusUi_0.8"
-PROJECT_AsusUi="amax_L/packages/sharelibs/AsusUi"
-BRANCH_AsusUi="AMAX_android-L"
-
 #####################################
-echo ""
-echo "[Info] Please checkout to target branch first."
-echo "[Info] This script will not checkout branch if AsusLauncher exist."
-echo ""
 
-echo "Choose you target branch:"
-OPTIONS="AsusLauncher_1.4_dev AsusLauncher_1.4_beta AsusLauncher_1.4_play AsusLauncher_1.4_dev-zenuinow-570619"
-select opt in ${OPTIONS}; do
-    if [ "$opt" = "AsusLauncher_1.4_dev" ] || [ "$opt" = "AsusLauncher_1.4_beta" ]; then
-        syncSourceCode ${DIRECTORY_AsusLauncher} ${PROJECT_AsusLauncher} ${opt}
-        setAntConfig ${DIRECTORY_AsusLauncher}
-        setAntConfigByBranch "AsusLauncher_1.4_beta" ${DIRECTORY_AsusLauncher}
-        checkAndExtractAARfiles ${DIRECTORY_AsusLauncher}
-        #set external project
-        syncSourceCode ${DIRECTORY_UserVoiceSDK} ${PROJECT_UserVoiceSDK} ${BRANCH_UserVoiceSDK}
-        setAntConfig ${DIRECTORY_UserVoiceSDK}
-        syncSourceCode ${DIRECTORY_AndroidSupportV7Recyclerview} ${PROJECT_AndroidSupportV7Recyclerview} ${BRANCH_AndroidSupportV7Recyclerview}
-        setAntConfig ${DIRECTORY_AndroidSupportV7Recyclerview}
-        syncSourceCode ${DIRECTORY_AndroidSupportV7Appcompat} ${PROJECT_AndroidSupportV7Appcompat} ${BRANCH_AndroidSupportV7Appcompat}
-        setAntConfig ${DIRECTORY_AndroidSupportV7Appcompat}
-        syncSourceCode ${DIRECTORY_AndroidSupportV7Cardview} ${PROJECT_AndroidSupportV7Cardview} ${BRANCH_AndroidSupportV7Cardview}
-        setAntConfig ${DIRECTORY_AndroidSupportV7Cardview}
-        syncSourceCode ${DIRECTORY_AndroidDesignSupport} ${PROJECT_AndroidDesignSupport} ${BRANCH_AndroidDesignSupport}
-        setAntConfig ${DIRECTORY_AndroidDesignSupport}
-        break
-    elif [ "$opt" = "AsusLauncher_1.4_play" ]; then
-        syncSourceCode ${DIRECTORY_AsusLauncher} ${PROJECT_AsusLauncher} ${opt}
-        setAntConfig ${DIRECTORY_AsusLauncher}
-        setAntConfigByBranch ${opt} ${DIRECTORY_AsusLauncher}
-        checkAndExtractAARfiles ${DIRECTORY_AsusLauncher}
-        #set external project
-        syncSourceCode ${DIRECTORY_UserVoiceSDK} ${PROJECT_UserVoiceSDK} ${BRANCH_UserVoiceSDK}
-        setAntConfig ${DIRECTORY_UserVoiceSDK}
-        break
-    elif [ "$opt" = "AsusLauncher_1.4_dev-zenuinow-570619" ]; then
-        syncSourceCode ${DIRECTORY_AsusLauncher} ${PROJECT_AsusLauncher} ${opt}
-        setAntConfig ${DIRECTORY_AsusLauncher}
-        setAntConfigByBranch ${opt} ${DIRECTORY_AsusLauncher}
-        checkAndExtractAARfiles ${DIRECTORY_AsusLauncher}
-        #set external project
-        syncSourceCode ${DIRECTORY_UserVoiceSDK} ${PROJECT_UserVoiceSDK} ${BRANCH_UserVoiceSDK}
-        setAntConfig ${DIRECTORY_UserVoiceSDK}
-        syncSourceCode ${DIRECTORY_TaskContract} ${PROJECT_TaskContract} ${BRANCH_TaskContract}
-        setAntConfig ${DIRECTORY_TaskContract}
-        syncSourceCode ${DIRECTORY_ZenNow} ${PROJECT_ZenNow} ${BRANCH_ZenNow}
-        setAntConfig ${DIRECTORY_ZenNow}
-        syncSourceCode ${DIRECTORY_AsusUi} ${PROJECT_AsusUi} ${BRANCH_AsusUi}
-        setAntConfig ${DIRECTORY_AsusUi}
-        break
-    else
-        echo bad option
-        exit
-    fi
-done
+syncLauncherSourceCode ${DIRECTORY_AsusLauncher} ${PROJECT_AsusLauncher}
+checkAndExtractAARfiles ${DIRECTORY_AsusLauncher}
+
+#set external project
+syncExternalProject ${DIRECTORY_AsusLauncher}
+setExternalAntConfig ${DIRECTORY_AsusLauncher}
+
 echo "[Info] Finish deploy AsusLauncher"
 
