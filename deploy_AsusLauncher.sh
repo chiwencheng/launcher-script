@@ -56,6 +56,7 @@ function checkAndExtractAARfiles {
             for COPYED_ASSET in ${COPYED_ASSETS}
             do
                 rm -r ${DIRECTORY}/assets/${COPYED_ASSET}
+                echo ${COPYED_ASSET}
             done
             # remove any file except build.xml asus_build.xml project.projecties pre-load in aar folder
             ALL_FILES_IN_AAR_FOLDER=$(ls ${AAR_FOLDER})
@@ -100,10 +101,10 @@ function syncExternalProject {
         do
             local dirName=$(echo ${dir}|cut -d '/' -f5)
             local projectName=$(echo ${dirName}|cut -d '_' -f1) # remove version, e.g. _1.0
-            typeset -n directory=DIRECTORY_${projectName}
-            typeset -n branch=BRANCH_${projectName}
-            typeset -n project=PROJECT_${projectName}
-            syncSourceCode ${directory} ${project} ${branch}
+            eval directory=DIRECTORY_\${projectName}
+            eval branch=BRANCH_\${projectName}
+            eval project=PROJECT_\${projectName}
+            syncSourceCode ${!directory} ${!project} ${!branch}
         done
     else
         echo "[WARN] sync external project fail, $DIRECTORY exist"
@@ -113,14 +114,20 @@ function syncExternalProject {
 function setExternalAntConfig {
     local DIRECTORY=$1
     if [ -d "$DIRECTORY" ]; then
-        cp -r ${DIRECTORY}/scripts/AntBuild/external/* .
-        echo "[Success] setup external project ant build config"
+        for dir in $(ls -d ${DIRECTORY}/scripts/AntBuild/external/*/)
+        do
+            local dirName=$(echo ${dir}|cut -d '/' -f5)
+            if [ -d "$dirName" ]; then
+                cp -r ${DIRECTORY}/scripts/AntBuild/external/${dirName} .
+                echo "[Success] setup external project $dirName ant build config"
+            fi
+        done
     fi
 }
 
 #####################################
 
-echo "[Info] version 1.0"
+echo "[Info] version 1.2"
 
 #####################################
 
