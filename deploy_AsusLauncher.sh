@@ -8,8 +8,16 @@ function syncSourceCode {
         echo "[START] sync $DIRECTORY"
         git clone ssh://${USER_NAME}@amax01:29418/${PROJECT} -b ${BRANCH} ${DIRECTORY}
         echo "[Success] sync $DIRECTORY"
+    elif [ ! -e "${DIRECTORY}/AndroidManifest.xml" ]; then
+        # abnormal status, re-sync project
+        echo "[WARN] $DIRECTORY already exist, but no source code, re-sync project..."
+        if [ "${DIRECTORY}" != "${DIRECTORY_AsusLauncher}" ]; then
+            rm -rf ${DIRECTORY}
+            git clone ssh://${USER_NAME}@amax01:29418/${PROJECT} -b ${BRANCH} ${DIRECTORY}
+            echo "[Success] sync $DIRECTORY"
+        fi
     else
-        echo "[WARN] sync fail, $DIRECTORY exist"
+        echo "[Info] $DIRECTORY already exist"
     fi
 }
 
@@ -132,7 +140,7 @@ function setExternalAntConfig {
 
 #####################################
 
-echo "[Info] version 1.2"
+echo "[Info] version 1.3"
 
 #####################################
 
