@@ -52,7 +52,7 @@ function checkAndExtractAARfiles {
 
             AAR_FOLDER=$(echo ${aar}|cut -d '.' -f1)
             # rm assets copyed from unzipped .aar
-            COPYED_ASSETS=$(find ${AAR_FOLDER}/assets/ -type f | cut -d '/' -f4)
+            COPYED_ASSETS=$(find ${AAR_FOLDER}/assets/ -type f | cut -d '/' -f4,5)
             for COPYED_ASSET in ${COPYED_ASSETS}
             do
                 rm -r ${DIRECTORY}/assets/${COPYED_ASSET}
