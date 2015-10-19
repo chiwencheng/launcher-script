@@ -33,6 +33,11 @@ function syncLauncherSourceCode {
     else
         echo "[WARN] sync fail, $DIRECTORY exist"
     fi
+
+    # fix no change id
+    if [ -d "$DIRECTORY" ]; then
+        cp ${DIRECTORY}/scripts/AntBuild/commit-msg ${DIRECTORY}/.git/hooks/
+    fi
 }
 
 function checkAndExtractAARfiles {
