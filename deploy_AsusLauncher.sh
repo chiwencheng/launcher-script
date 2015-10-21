@@ -18,6 +18,22 @@ function syncSourceCode {
         fi
     else
         echo "[Info] $DIRECTORY already exist"
+        # rebase external project
+        if [ "${DIRECTORY}" != "${DIRECTORY_AsusLauncher}" ]; then
+            cd ${DIRECTORY}
+            # checkout build file to HEAD for rebase
+            ARRAY=("build.xml" "asus_build.xml" "project.properties" "build.gradle")
+            for file in $(git status --porcelain 2>/dev/null| grep "^ M" | cut -d ' ' -f3)
+            do
+                FOUND=$(echo ${ARRAY[*]} | grep ${file})
+                if [ "${FOUND}" != "" ]; then
+                    git checkout ${file}
+                fi
+            done
+            git pull --rebase
+            cd ../
+            echo "[Success] rebase $DIRECTORY"
+        fi
     fi
 }
 
