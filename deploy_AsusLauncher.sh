@@ -156,7 +156,7 @@ function setExternalAntConfig {
 
 #####################################
 
-echo "[Info] version 1.3"
+echo "[Info] version 1.4"
 
 #####################################
 
