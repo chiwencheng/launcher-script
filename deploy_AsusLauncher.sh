@@ -5,20 +5,17 @@ function syncSourceCode {
     local project=$2
     local branch=$3
     local tag=$4
+    echo "[START] sync $directory"
     if [ ! -d "$directory" ]; then
-        echo "[START] sync $directory"
         git clone ssh://${USER_NAME}@amax01:29418/${project} -b ${branch} ${directory}
-        echo "[Success] sync $directory"
     elif [ ! -e "${directory}/AndroidManifest.xml" ]; then
         # abnormal status, re-sync project
         echo "[WARN] $directory already exist, but no source code, re-sync project..."
         if [ "${directory}" != "${DIRECTORY_AsusLauncher}" ]; then
             rm -rf ${directory}
             git clone ssh://${USER_NAME}@amax01:29418/${project} -b ${branch} ${directory}
-            echo "[Success] sync $directory"
         fi
     else
-        echo "[Info] $directory already exist"
         # rebase external project
         if [ "${directory}" != "${DIRECTORY_AsusLauncher}" ]; then
             cd ${directory}
@@ -28,7 +25,9 @@ function syncSourceCode {
                 echo "[WARN] $directory already exist, but repository changed, re-sync project..."
                 rm -rf ${directory}
                 git clone ssh://${USER_NAME}@amax01:29418/${project} -b ${branch} ${directory}
-                echo "[Success] sync $directory"
+                if [ -n "${tag}" ]; then
+                    git checkout ${tag}
+                fi
                 cd ..
                 return;
             fi
@@ -44,19 +43,24 @@ function syncSourceCode {
             done
 
             # checkout to default if not currently on a branch
-            if [ -z "$(git symbolic-ref --short -q HEAD)" ]; then
+            if [ -z "$(git symbolic-ref HEAD 2>/dev/null)" ]; then
                 git checkout ${branch}
             fi
 
             # sync to latest code base
             git pull --rebase
 
-            # checkout to target tag
-            if [ -n "${tag}" ]; then
-                git checkout ${tag}
-            fi
             cd ../
         fi
+    fi
+
+    # checkout to target tag
+    if [ -d "$directory" ]; then
+        cd ${directory}
+        if [ -n "${tag}" ]; then
+            git checkout ${tag}
+        fi
+        cd ..
     fi
 }
 
@@ -208,13 +212,9 @@ function getExternalTagList {
     local launcher_version_second=$(echo ${launcher_project_version} | cut -d '.' -f2)
     local launcher_version_third=$(echo ${launcher_project_version} | cut -d '.' -f3)
     local launcher_version_fourth=$(echo ${launcher_project_version} | cut -d '.' -f4)
-
     PATH_LAUNCHER_VERSION=$(echo ${launcher_project_name}/${launcher_version_first}.${launcher_version_second}.${launcher_version_third}/${launcher_version_fourth})
 
-    if [ ! -d "${MOUNT_APK_POOL}" ]; then
-        sudo mkdir ${MOUNT_APK_POOL}
-        sudo mount -t cifs ${REMOTE_APK_POOL_PATH} ${MOUNT_APK_POOL}
-    fi
+    mountApkPool
 
     if [ -d "${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}" ]; then
         local version_code=$(grep VERSION_CODE ${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}/build_config/build.cfg | cut -d '=' -f2)
@@ -248,6 +248,24 @@ function getExternalTagList {
 
 }
 
+function mountApkPool {
+    # require sudo to mount remote folder
+    if ! mount | grep ${MOUNT_APK_POOL} > /dev/null; then
+        echo "[Info] Mount APK_POOL require root (only once)"
+        sudo mkdir ${MOUNT_APK_POOL}
+        if ! dpkg -l | grep cifs-utils > /dev/null; then
+            echo "[Info] Install cifs-utils for mount"
+            sudo apt-get install cifs-utils
+        fi
+        sudo mount -t cifs ${REMOTE_APK_POOL_PATH} ${MOUNT_APK_POOL} -o guest
+        echo mount | grep ${MOUNT_APK_POOL}
+        # remove mount folder
+        # sudo umount /mnt/APK_Pool
+        # sudo rm /mnt/APK_Pool/ -r
+    fi
+}
+
+
 #####################################
 
 echo "###########################"
@@ -277,12 +295,11 @@ MOUNT_APK_POOL="/mnt/APK_Pool"
 REMOTE_APK_POOL_PATH="//10.78.24.10/AMAX-release/APK_Pool"
 
 #####################################
-
-getExternalTagList ${DIRECTORY_AsusLauncher}
-echo "###########################"
 syncLauncherSourceCode ${DIRECTORY_AsusLauncher} ${PROJECT_AsusLauncher}
 echo "###########################"
 checkAndExtractAARfiles ${DIRECTORY_AsusLauncher}
+echo "###########################"
+getExternalTagList ${DIRECTORY_AsusLauncher}
 echo "###########################"
 
 #set external project
