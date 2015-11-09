@@ -1,53 +1,76 @@
 #!/bin/bash
 
 function syncSourceCode {
-    local DIRECTORY=$1
-    local PROJECT=$2
-    local BRANCH=$3
-    if [ ! -d "$DIRECTORY" ]; then
-        echo "[START] sync $DIRECTORY"
-        git clone ssh://${USER_NAME}@amax01:29418/${PROJECT} -b ${BRANCH} ${DIRECTORY}
-        echo "[Success] sync $DIRECTORY"
-    elif [ ! -e "${DIRECTORY}/AndroidManifest.xml" ]; then
+    local directory=$1
+    local project=$2
+    local branch=$3
+    local tag=$4
+    if [ ! -d "$directory" ]; then
+        echo "[START] sync $directory"
+        git clone ssh://${USER_NAME}@amax01:29418/${project} -b ${branch} ${directory}
+        echo "[Success] sync $directory"
+    elif [ ! -e "${directory}/AndroidManifest.xml" ]; then
         # abnormal status, re-sync project
-        echo "[WARN] $DIRECTORY already exist, but no source code, re-sync project..."
-        if [ "${DIRECTORY}" != "${DIRECTORY_AsusLauncher}" ]; then
-            rm -rf ${DIRECTORY}
-            git clone ssh://${USER_NAME}@amax01:29418/${PROJECT} -b ${BRANCH} ${DIRECTORY}
-            echo "[Success] sync $DIRECTORY"
+        echo "[WARN] $directory already exist, but no source code, re-sync project..."
+        if [ "${directory}" != "${DIRECTORY_AsusLauncher}" ]; then
+            rm -rf ${directory}
+            git clone ssh://${USER_NAME}@amax01:29418/${project} -b ${branch} ${directory}
+            echo "[Success] sync $directory"
         fi
     else
-        echo "[Info] $DIRECTORY already exist"
+        echo "[Info] $directory already exist"
         # rebase external project
-        if [ "${DIRECTORY}" != "${DIRECTORY_AsusLauncher}" ]; then
-            cd ${DIRECTORY}
+        if [ "${directory}" != "${DIRECTORY_AsusLauncher}" ]; then
+            cd ${directory}
+
+            # repository changed, re-sync project
+            if [ "$(git config --get remote.origin.url)" != "ssh://${USER_NAME}@amax01:29418/${project}" ]; then
+                echo "[WARN] $directory already exist, but repository changed, re-sync project..."
+                rm -rf ${directory}
+                git clone ssh://${USER_NAME}@amax01:29418/${project} -b ${branch} ${directory}
+                echo "[Success] sync $directory"
+                cd ..
+                return;
+            fi
+
             # checkout build file to HEAD for rebase
-            ARRAY=("build.xml" "asus_build.xml" "project.properties" "build.gradle")
+            local array=("build.xml" "asus_build.xml" "project.properties" "build.gradle")
             for file in $(git status --porcelain 2>/dev/null| grep "^ M" | cut -d ' ' -f3)
             do
-                FOUND=$(echo ${ARRAY[*]} | grep ${file})
-                if [ "${FOUND}" != "" ]; then
+                local found=$(echo ${array[*]} | grep ${file})
+                if [ "${found}" != "" ]; then
                     git checkout ${file}
                 fi
             done
+
+            # checkout to default if not currently on a branch
+            if [ -z "$(git symbolic-ref --short -q HEAD)" ]; then
+                git checkout ${branch}
+            fi
+
+            # sync to latest code base
             git pull --rebase
+
+            # checkout to target tag
+            if [ -n "${tag}" ]; then
+                git checkout ${tag}
+            fi
             cd ../
-            echo "[Success] rebase $DIRECTORY"
         fi
     fi
 }
 
 function syncLauncherSourceCode {
-    local DIRECTORY=$1
-    local PROJECT=$2
-    if [ ! -d "$DIRECTORY" ]; then
-        echo "Choose you target branch:"
-        OPTIONS="AsusLauncher_1.4_dev AsusLauncher_1.4_beta AsusLauncher_1.4_play"
-        select opt in ${OPTIONS}; do
+    local directory=$1
+    local project=$2
+    if [ ! -d "$directory" ]; then
+        echo "[INFO] Choose you target branch:"
+        local branch_options="AsusLauncher_1.4_dev AsusLauncher_1.4_beta AsusLauncher_1.4_play"
+        select opt in ${branch_options}; do
             if [ "$opt" = "AsusLauncher_1.4_dev" ] || [ "$opt" = "AsusLauncher_1.4_beta" ] || [ "$opt" = "AsusLauncher_1.4_play" ]; then
-                echo "[START] sync $DIRECTORY"
-                syncSourceCode ${DIRECTORY} ${PROJECT} ${opt}
-                echo "[Success] sync $DIRECTORY"
+                echo "[START] sync $directory"
+                syncSourceCode ${directory} ${project} ${opt}
+                echo "[Success] sync $directory"
                 break
             else
                 echo bad option
@@ -55,48 +78,48 @@ function syncLauncherSourceCode {
             fi
         done
     else
-        echo "[WARN] sync fail, $DIRECTORY exist"
+        echo "[WARN] sync fail, $directory exist"
     fi
 
     # fix no change id
-    if [ -d "$DIRECTORY" ]; then
-        cp ${DIRECTORY}/scripts/AntBuild/commit-msg ${DIRECTORY}/.git/hooks/
+    if [ -d "$directory" ]; then
+        cp ${directory}/scripts/AntBuild/commit-msg ${directory}/.git/hooks/
     fi
 }
 
 function checkAndExtractAARfiles {
-    local DIRECTORY=$1
+    local directory=$1
     # aar for ant build and Android Studio
-    if ls -d ${DIRECTORY}/*.aar ;then
-        AAR_FILES=$(ls -d ${DIRECTORY}/*.aar)
-        for aar in ${AAR_FILES}
+    if ls -d ${directory}/*.aar ;then
+        local aar_files=$(ls -d ${directory}/*.aar)
+        for aar in ${aar_files}
         do
-            AAR_FOR_STUDIO=$(echo ${aar}|cut -d '.' -f1)/$(echo ${aar}|cut -d '/' -f2)
-            if diff ${aar} ${AAR_FOR_STUDIO} >/dev/null ; then
-                echo "[Info] $aar and $AAR_FOR_STUDIO same"
+            local aar_for_studio=$(echo ${aar}|cut -d '.' -f1)/$(echo ${aar}|cut -d '/' -f2)
+            if diff ${aar} ${aar_for_studio} >/dev/null ; then
+                echo "[Info] $aar and $aar_for_studio same"
                 continue;
             else
-                echo "[Info] $aar and $AAR_FOR_STUDIO different"
+                echo "[Info] $aar and $aar_for_studio different"
             fi
 
-            AAR_FOLDER=$(echo ${aar}|cut -d '.' -f1)
+            local aar_folder=$(echo ${aar}|cut -d '.' -f1)
             # rm assets copyed from unzipped .aar
-            COPYED_ASSETS=$(find ${AAR_FOLDER}/assets/ -type f | cut -d '/' -f4,5)
-            for COPYED_ASSET in ${COPYED_ASSETS}
+            local copyed_assets=$(find ${aar_folder}/assets/ -type f | cut -d '/' -f4,5)
+            for copyed_asset in ${copyed_assets}
             do
-                rm -r ${DIRECTORY}/assets/${COPYED_ASSET}
-                echo ${COPYED_ASSET}
+                rm -r ${directory}/assets/${copyed_asset}
+                echo ${copyed_asset}
             done
             # remove any file except build.xml asus_build.xml project.projecties pre-load in aar folder
-            ALL_FILES_IN_AAR_FOLDER=$(ls ${AAR_FOLDER})
-            ARRAY=("build.xml" "asus_build.xml" "project.properties" "pre-load" "build.gradle")
-            for file in ${ALL_FILES_IN_AAR_FOLDER}
+            all_files_in_aar_folder=$(ls ${aar_folder})
+            local array=("build.xml" "asus_build.xml" "project.properties" "pre-load" "build.gradle")
+            for file in ${all_files_in_aar_folder}
             do
-                FOUND=$(echo ${ARRAY[*]} | grep ${file})
-                if [ "${FOUND}" != "" ]; then
-                    echo "ignore ${file}"
+                local found=$(echo ${array[*]} | grep ${file})
+                if [ "${found}" != "" ]; then
+                    echo "[Info] ignore ${file}"
                 else
-                    rm -rf ${AAR_FOLDER}/${file}
+                    rm -rf ${aar_folder}/${file}
                 fi
             done
 
@@ -104,18 +127,18 @@ function checkAndExtractAARfiles {
             find ${aar} -exec sh -c 'unzip -od "${1%.*}" "$1"' _ {} \;
 
             # move aar resource
-            mkdir -p ${AAR_FOLDER}/src
-            mkdir -p ${AAR_FOLDER}/pre-load
-            mkdir -p ${AAR_FOLDER}/libs
-            cp ${AAR_FOLDER}/*.jar ${AAR_FOLDER}/libs/
-            for nativeso in $(ls ${AAR_FOLDER}/jni)
+            mkdir -p ${aar_folder}/src
+            mkdir -p ${aar_folder}/pre-load
+            mkdir -p ${aar_folder}/libs
+            cp ${aar_folder}/*.jar ${aar_folder}/libs/
+            for nativeso in $(ls ${aar_folder}/jni)
             do
-                cp -arp ${AAR_FOLDER}/jni/${nativeso} ${AAR_FOLDER}/libs/
+                cp -arp ${aar_folder}/jni/${nativeso} ${aar_folder}/libs/
             done
-            export INTERNAL_PROJECTS=$(echo ${INTERNAL_PROJECTS} ${AAR_FOLDER})
-            cp -arp ${AAR_FOLDER}/assets/* ${DIRECTORY}/assets/
+            export INTERNAL_PROJECTS=$(echo ${INTERNAL_PROJECTS} ${aar_folder})
+            cp -arp ${aar_folder}/assets/* ${directory}/assets/
             # cp aar for Android Studio
-            cp ${aar} ${AAR_FOLDER}/
+            cp ${aar} ${aar_folder}/
         done
     else
         echo "[Info] Don't have AAR files"
@@ -123,39 +146,111 @@ function checkAndExtractAARfiles {
 }
 
 function syncExternalProject {
-    local DIRECTORY=$1
-    if [ -d "$DIRECTORY" ]; then
-        source ${DIRECTORY}/scripts/AntBuild/external/sync.conf
-        for dir in $(ls -d ${DIRECTORY}/scripts/AntBuild/external/*/)
+    local directory=$1
+
+    if [ -d "$directory" ]; then
+        local tag_array=$(echo ${EXTERNAL_TAG_LIST} | tr " " "\n")
+        source ${directory}/scripts/AntBuild/external/sync.conf
+        for dir in $(ls -d ${directory}/scripts/AntBuild/external/*/)
         do
             local dirName=$(echo ${dir}|cut -d '/' -f5)
             local projectName=$(echo ${dirName}|cut -d '_' -f1) # remove version, e.g. _1.0
             eval directory=DIRECTORY_\${projectName}
             eval branch=BRANCH_\${projectName}
             eval project=PROJECT_\${projectName}
-            syncSourceCode ${!directory} ${!project} ${!branch}
+
+            local tag=$(printf -- '%s\n' "${tag_array[@]}" | grep ${projectName})
+
+            syncSourceCode ${!directory} ${!project} ${!branch} ${tag}
+            echo "#########"
         done
     else
-        echo "[WARN] sync external project fail, $DIRECTORY exist"
+        echo "[WARN] sync external project fail, $directory exist"
     fi
 }
 
 function setExternalAntConfig {
-    local DIRECTORY=$1
-    if [ -d "$DIRECTORY" ]; then
-        for dir in $(ls -d ${DIRECTORY}/scripts/AntBuild/external/*/)
+    local directory=$1
+    if [ -d "$directory" ]; then
+        for dir in $(ls -d ${directory}/scripts/AntBuild/external/*/)
         do
             local dirName=$(echo ${dir}|cut -d '/' -f5)
             if [ -d "$dirName" ]; then
-                cp -r ${DIRECTORY}/scripts/AntBuild/external/${dirName} .
+                cp -r ${directory}/scripts/AntBuild/external/${dirName} .
                 echo "[Success] setup external project $dirName ant build config"
             fi
         done
     fi
 }
 
+function getExternalTagList {
+    local directory=$1
+
+    cd ${directory}
+    echo "[Info] Current branch tag is $(git describe --abbrev=0)"
+    echo "[Info] Type the tag that you want to check (default use current, enter 0 to skip), followed by [ENTER]:"
+    read input_tag
+    if [ -n "${input_tag}" ]; then
+        if [ "${input_tag}" = "0" ]; then
+            cd ..
+            return;
+        else
+            input_tag=${input_tag}
+        fi
+
+    else
+        input_tag=$(git describe --abbrev=0)
+    fi
+    cd ..
+    local launcher_project_name=$(echo ${input_tag} | cut -d '_' -f1)
+    local launcher_project_version=$(echo ${input_tag} | cut -d '_' -f2)
+    local launcher_version_first=$(echo ${launcher_project_version} | cut -d '.' -f1)
+    local launcher_version_second=$(echo ${launcher_project_version} | cut -d '.' -f2)
+    local launcher_version_third=$(echo ${launcher_project_version} | cut -d '.' -f3)
+    local launcher_version_fourth=$(echo ${launcher_project_version} | cut -d '.' -f4)
+
+    PATH_LAUNCHER_VERSION=$(echo ${launcher_project_name}/${launcher_version_first}.${launcher_version_second}.${launcher_version_third}/${launcher_version_fourth})
+
+    if [ ! -d "${MOUNT_APK_POOL}" ]; then
+        sudo mkdir ${MOUNT_APK_POOL}
+        sudo mount -t cifs ${REMOTE_APK_POOL_PATH} ${MOUNT_APK_POOL}
+    fi
+
+    if [ -d "${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}" ]; then
+        local version_code=$(grep VERSION_CODE ${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}/build_config/build.cfg | cut -d '=' -f2)
+        local version_name=$(grep VERSION_NAME ${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}/build_config/build.cfg | cut -d '=' -f2)
+        EXTERNAL_TAG_LIST=$(grep EXTERNAL_TAG_LIST ${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}/build_config/build.cfg | cut -d '=' -f2)
+
+        echo "[Info] VERSION_CODE: ${version_code}"
+        echo "[Info] VERSION_NAME: ${version_name}"
+        echo "[Info] APK PATH in local: ${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}/"
+        echo "[Info] APK PATH in remote: ${REMOTE_APK_POOL_PATH}/${PATH_LAUNCHER_VERSION}/"
+        echo ""
+
+        if [ -n "${EXTERNAL_TAG_LIST}" ]; then
+            echo "[Info] EXTERNAL_TAG_LIST:"
+            echo "${EXTERNAL_TAG_LIST}"
+            echo "[Info] Enter the external tag that you want to checkout (default for all, enter 0 to skip), followed by [ENTER]:"
+            read external_tag_checkout
+
+            if [ -n "${external_tag_checkout}" ]; then
+                if [ "${external_tag_checkout}" = "0" ]; then
+                    EXTERNAL_TAG_LIST=""
+                else
+                    EXTERNAL_TAG_LIST=${external_tag_checkout}
+                fi
+            fi
+        fi
+
+    else
+        echo "[WARN] wrong tag"
+    fi
+
+}
+
 #####################################
 
+echo "###########################"
 echo "[Info] version 1.4"
 
 #####################################
@@ -171,20 +266,30 @@ if [ -z "$USER_NAME" ]; then
     echo "[FATAL] SSH user is is empty"
     exit
 fi
+echo "###########################"
 
 #####################################
 
 DIRECTORY_AsusLauncher="AsusLauncher"
 PROJECT_AsusLauncher="amax_L/packages/apps/AsusLauncher"
 
+MOUNT_APK_POOL="/mnt/APK_Pool"
+REMOTE_APK_POOL_PATH="//10.78.24.10/AMAX-release/APK_Pool"
+
 #####################################
 
+getExternalTagList ${DIRECTORY_AsusLauncher}
+echo "###########################"
 syncLauncherSourceCode ${DIRECTORY_AsusLauncher} ${PROJECT_AsusLauncher}
+echo "###########################"
 checkAndExtractAARfiles ${DIRECTORY_AsusLauncher}
+echo "###########################"
 
 #set external project
 syncExternalProject ${DIRECTORY_AsusLauncher}
+echo "###########################"
 setExternalAntConfig ${DIRECTORY_AsusLauncher}
+echo "###########################"
 
 echo "[Info] Finish deploy AsusLauncher"
 
