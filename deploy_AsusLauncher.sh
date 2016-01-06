@@ -305,12 +305,13 @@ function release_note() {
 
     echo "###########################"
     echo "[Info] generate release note"
-    echo "#########"
-    echo "[Info] ${directory} from ${previous_tag} to ${current_tag}"
-    echo "---------"
+    echo "#########" > release_note.txt
+    local release_note_path=$(readlink -f release_note.txt)
+    echo "[Info] ${directory} from ${previous_tag} to ${current_tag}" >> ${release_note_path}
+    echo "---------" >> ${release_note_path}
 
     cd ${directory}
-    git log ${previous_tag}..${current_tag} --pretty="%s (%an)"
+    git log ${previous_tag}..${current_tag} --pretty="%s (%an)" >> ${release_note_path}
     cd ..
 
     for dir in $(ls -d ${directory}/scripts/AntBuild/external/*/)
@@ -324,14 +325,15 @@ function release_note() {
         local external_previous_tag=$(printf -- '%s\n' "${previous_tag_array[@]}" | grep -m 1 -i ${projectName})
 
         if [ -n "${external_previous_tag}" ] && [ "${external_previous_tag}" != "${external_current_tag}" ]; then
-            echo "#########"
-            echo "[Info] ${projectName} from ${external_previous_tag} to ${external_current_tag}"
-            echo "---------"
+            echo "#########" >> ${release_note_path}
+            echo "[Info] ${projectName} from ${external_previous_tag} to ${external_current_tag}" >> ${release_note_path}
+            echo "---------" >> ${release_note_path}
             cd ${dirName}
-            git log ${external_previous_tag}..${external_current_tag} --pretty="%s (%an)"
+            git log ${external_previous_tag}..${external_current_tag} --pretty="%s (%an)" >> ${release_note_path}
             cd ..
         fi
     done
+    echo "[Info] complete! see ${release_note_path}"
     echo "###########################"
 }
 
