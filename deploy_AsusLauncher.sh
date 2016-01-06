@@ -163,7 +163,7 @@ function syncExternalProject {
             eval branch=BRANCH_\${projectName}
             eval project=PROJECT_\${projectName}
 
-            local tag=$(printf -- '%s\n' "${tag_array[@]}" | grep ${projectName})
+            local tag=$(printf -- '%s\n' "${tag_array[@]}" | grep -m 1 -i ${projectName})
 
             syncSourceCode ${!directory} ${!project} ${!branch} ${tag}
             echo "#########"
@@ -192,18 +192,17 @@ function getExternalTagList {
 
     cd ${directory}
     echo "[Info] Current branch tag is $(git describe --abbrev=0)"
-    echo "[Info] Type the tag that you want to check (default use current, enter 0 to skip), followed by [ENTER]:"
+    echo "[Info] Type the tag that you want to check (press [ENTER] to skip, or enter 0 to use current branch tag), followed by [ENTER]:"
     read input_tag
     if [ -n "${input_tag}" ]; then
         if [ "${input_tag}" = "0" ]; then
-            cd ..
-            return;
+            input_tag=$(git describe --abbrev=0)
         else
             input_tag=${input_tag}
         fi
-
     else
-        input_tag=$(git describe --abbrev=0)
+        cd ..
+        return;
     fi
     cd ..
     local launcher_project_name=$(echo ${input_tag} | cut -d '_' -f1)
@@ -219,7 +218,7 @@ function getExternalTagList {
     if [ -d "${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}" ]; then
         local version_code=$(grep VERSION_CODE ${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}/build_config/build.cfg | cut -d '=' -f2)
         local version_name=$(grep VERSION_NAME ${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}/build_config/build.cfg | cut -d '=' -f2)
-        EXTERNAL_TAG_LIST=$(grep EXTERNAL_TAG_LIST ${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}/build_config/build.cfg | cut -d '=' -f2)
+        CURRENT_EXTERNAL_TAG_LIST=$(grep EXTERNAL_TAG_LIST ${MOUNT_APK_POOL}/${PATH_LAUNCHER_VERSION}/build_config/build.cfg | cut -d '=' -f2)
 
         echo "[Info] VERSION_CODE: ${version_code}"
         echo "[Info] VERSION_NAME: ${version_name}"
@@ -227,18 +226,23 @@ function getExternalTagList {
         echo "[Info] APK PATH in remote: ${REMOTE_APK_POOL_PATH}/${PATH_LAUNCHER_VERSION}/"
         echo ""
 
-        if [ -n "${EXTERNAL_TAG_LIST}" ]; then
-            echo "[Info] EXTERNAL_TAG_LIST:"
-            echo "${EXTERNAL_TAG_LIST}"
-            echo "[Info] Enter the external tag that you want to checkout (default for all, enter 0 to skip), followed by [ENTER]:"
+        if [ -n "${CURRENT_EXTERNAL_TAG_LIST}" ]; then
+            echo "[Info] CURRENT_EXTERNAL_TAG_LIST:"
+            echo "${CURRENT_EXTERNAL_TAG_LIST}"
+            echo "[Info] Enter the external tag that you want to checkout (press [ENTER] to skip all, or enter 0 to apply all tag, enter -1 to gen release note), followed by [ENTER]:"
             read external_tag_checkout
 
             if [ -n "${external_tag_checkout}" ]; then
                 if [ "${external_tag_checkout}" = "0" ]; then
-                    EXTERNAL_TAG_LIST=""
+                    echo "[Info] apply all tag"
+                elif [ "${external_tag_checkout}" = "-1" ]; then
+                    release_note ${directory} ${input_tag}
+                    exit;
                 else
-                    EXTERNAL_TAG_LIST=${external_tag_checkout}
+                    CURRENT_EXTERNAL_TAG_LIST=${external_tag_checkout}
                 fi
+            else
+                CURRENT_EXTERNAL_TAG_LIST=""
             fi
         fi
 
@@ -265,11 +269,78 @@ function mountApkPool {
     fi
 }
 
+function release_note() {
+    local directory=$1
+    local current_tag=$2
+
+    cd ${directory}
+    echo "[Info] Previous branch tag is $(git describe --abbrev=0 --tags ${current_tag}^)"
+    echo "[Info] Type the tag that you want to check (press [ENTER] to use previous branch tag, or enter target tag), followed by [ENTER]:"
+    read previous_tag
+    if [ -n "${previous_tag}" ]; then
+        previous_tag=${previous_tag}
+    else
+        previous_tag=$(git describe --abbrev=0 --tags ${current_tag}^)
+
+    fi
+    cd ..
+    local launcher_project_name=$(echo ${previous_tag} | cut -d '_' -f1)
+    local launcher_project_version=$(echo ${previous_tag} | cut -d '_' -f2)
+    local launcher_version_first=$(echo ${launcher_project_version} | cut -d '.' -f1)
+    local launcher_version_second=$(echo ${launcher_project_version} | cut -d '.' -f2)
+    local launcher_version_third=$(echo ${launcher_project_version} | cut -d '.' -f3)
+    local launcher_version_fourth=$(echo ${launcher_project_version} | cut -d '.' -f4)
+    PATH_PREVIOUS_LAUNCHER_VERSION=$(echo ${launcher_project_name}/${launcher_version_first}.${launcher_version_second}.${launcher_version_third}/${launcher_version_fourth})
+
+    mountApkPool
+
+    if [ -d "${MOUNT_APK_POOL}/${PATH_PREVIOUS_LAUNCHER_VERSION}" ]; then
+        PREVIOUS_EXTERNAL_TAG_LIST=$(grep EXTERNAL_TAG_LIST ${MOUNT_APK_POOL}/${PATH_PREVIOUS_LAUNCHER_VERSION}/build_config/build.cfg | cut -d '=' -f2)
+        echo "[Info] PREVIOUS_EXTERNAL_TAG_LIST:"
+        echo "${PREVIOUS_EXTERNAL_TAG_LIST}"
+    else
+        echo "[WARN] wrong tag"
+    fi
+
+
+    echo "###########################"
+    echo "[Info] generate release note"
+    echo "#########"
+    echo "[Info] ${directory} from ${previous_tag} to ${current_tag}"
+    echo "---------"
+
+    cd ${directory}
+    git log ${previous_tag}..${current_tag} --pretty="%s (%an)"
+    cd ..
+
+    for dir in $(ls -d ${directory}/scripts/AntBuild/external/*/)
+    do
+        local dirName=$(echo ${dir}|cut -d '/' -f5)
+        local projectName=$(echo ${dirName}|cut -d '_' -f1) # remove version, e.g. _1.0
+
+        local tag_array=$(echo ${CURRENT_EXTERNAL_TAG_LIST} | tr " " "\n")
+        local previous_tag_array=$(echo ${PREVIOUS_EXTERNAL_TAG_LIST} | tr " " "\n")
+        local external_current_tag=$(printf -- '%s\n' "${tag_array[@]}" | grep -m 1 -i ${projectName})
+        local external_previous_tag=$(printf -- '%s\n' "${previous_tag_array[@]}" | grep -m 1 -i ${projectName})
+
+        if [ -n "${external_previous_tag}" ] && [ "${external_previous_tag}" != "${external_current_tag}" ]; then
+            echo "#########"
+            echo "[Info] ${projectName} from ${external_previous_tag} to ${external_current_tag}"
+            echo "---------"
+            cd ${dirName}
+            git log ${external_previous_tag}..${external_current_tag} --pretty="%s (%an)"
+            cd ..
+        fi
+    done
+    echo "###########################"
+}
+
+
 
 #####################################
 
 echo "###########################"
-echo "[Info] version 1.5"
+echo "[Info] version 1.6"
 
 #####################################
 
