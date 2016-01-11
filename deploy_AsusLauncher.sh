@@ -153,7 +153,7 @@ function syncExternalProject {
     local directory=$1
 
     if [ -d "$directory" ]; then
-        local tag_array=$(echo ${EXTERNAL_TAG_LIST} | tr " " "\n")
+        local tag_array=$(echo ${CURRENT_EXTERNAL_TAG_LIST} | tr " " "\n")
         source ${directory}/scripts/AntBuild/external/sync.conf
         for dir in $(ls -d ${directory}/scripts/AntBuild/external/*/)
         do
