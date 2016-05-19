@@ -154,11 +154,20 @@ function syncMainSourceCode {
 function checkAndExtractAARfiles {
     local directory=$1
     # aar for ant build and Android Studio
-    if [ "$(ls -d ${directory}/*.aar  2>&1)" ];then
-        local aar_files=$(ls -d ${directory}/*.aar)
+    local aar_files;
+    if ls -d ${directory}/*.aar 1> /dev/null 2>&1; then
+        aar_files=$(ls -d ${directory}/*.aar)
+    elif ls -d ${directory}/libs/*.aar 1> /dev/null 2>&1; then
+        aar_files=$(ls -d ${directory}/libs/*.aar)
+    fi
+
+    if [ ! -z "${aar_files}" ];then
         for aar in ${aar_files}
         do
-            local aar_for_studio=$(echo ${aar}|cut -d '.' -f1)/$(echo ${aar}|cut -d '/' -f2)
+            local filename=$(basename "$aar")
+            local aar_folder="${directory}/${filename%.*}"
+            local aar_for_studio="${aar_folder}/${filename}"
+
             if diff ${aar} ${aar_for_studio} >/dev/null 2>&1; then
                 echo "[Info] $aar and $aar_for_studio same"
                 continue;
@@ -166,7 +175,6 @@ function checkAndExtractAARfiles {
                 echo "[Info] $aar and $aar_for_studio different"
             fi
 
-            local aar_folder=$(echo ${aar}|cut -d '.' -f1)
             # rm assets copyed from unzipped .aar
             local copyed_assets=$(find ${aar_folder}/assets/ -type f | cut -d '/' -f4,5)
             for copyed_asset in ${copyed_assets}
@@ -184,32 +192,37 @@ function checkAndExtractAARfiles {
                 fi
             done
 
+            # cp aar for Android Studio
+            mkdir -p ${aar_folder}
+            cp ${aar} ${aar_folder}/
+
             #unzip aar files
+            cd ${aar_folder}
             if windows; then
-                mkdir -p ${aar_folder}
-                cp ${aar} ${aar_folder}
-                cd ${aar_folder}
-                    local filename="${aar##*/}"
-                    jar xf ${filename}
-                cd -
+                jar xf ${filename}
             else
-                find ${aar} -exec sh -c 'unzip -od "${1%.*}" "$1"' _ {} \;
+                unzip ${filename}
             fi
+            cd -
 
             # move aar resource
             mkdir -p ${aar_folder}/src
             mkdir -p ${aar_folder}/pre-load
             mkdir -p ${aar_folder}/libs
             cp ${aar_folder}/*.jar ${aar_folder}/libs/
-            for nativeso in $(ls ${aar_folder}/jni)
-            do
-                cp -arp ${aar_folder}/jni/${nativeso} ${aar_folder}/libs/
-            done
+            if ls -d ${aar_folder}/jni 1> /dev/null 2>&1; then
+                for nativeso in $(ls ${aar_folder}/jni)
+                do
+                    cp -arp ${aar_folder}/jni/${nativeso} ${aar_folder}/libs/
+                done
+            fi
+            if ls -d ${aar_folder}/assets/* 1> /dev/null 2>&1; then
+                cp -arp ${aar_folder}/assets/* ${directory}/assets/
+            fi
+
             export INTERNAL_PROJECTS=$(echo ${INTERNAL_PROJECTS} ${aar_folder})
-            cp -arp ${aar_folder}/assets/* ${directory}/assets/
-            # cp aar for Android Studio
-            cp ${aar} ${aar_folder}/
-            printLog "SUCCESS" "finish deploy ${aar} "
+
+            printLog "SUCCESS" "finish deploy ${aar}"
         done
     else
         echo "[Info] Don't have AAR files"
