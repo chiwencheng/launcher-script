@@ -51,11 +51,18 @@ function syncSourceCode {
 
         # checkout build file to HEAD for rebase
         local array=("build.xml" "asus_build.xml" "project.properties" "build.gradle")
-        for file in $(git status --porcelain 2>/dev/null| grep "^ M" | cut -d ' ' -f3)
+        for file in $(git status --porcelain | grep "^ M" | sed -e 's/^[ M]* //')
         do
             local found=$(echo ${array[*]} | grep ${file})
             if [ "${found}" != "" ]; then
                 git checkout ${file}
+            fi
+        done
+        for file in $(git status --porcelain | grep "^?? "  | sed -e 's/^[?]* //')
+        do
+            local found=$(echo ${array[*]} | grep ${file})
+            if [ "${found}" != "" ]; then
+                local result=$(git clean -f ${file} 2>/dev/null 2>&1)
             fi
         done
 
@@ -371,7 +378,6 @@ function release_note() {
         previous_tag=${previous_tag}
     else
         previous_tag=$(git describe --abbrev=0 --tags ${current_tag}^)
-
     fi
     cd ..
     local main_project_name=$(echo ${previous_tag} | cut -d '_' -f1)
@@ -407,8 +413,15 @@ function release_note() {
 
     for dir in $(ls -d ${directory}/scripts/AntBuild/external/*/)
     do
+
+
         local dirName=$(echo ${dir}|cut -d '/' -f5)
         local projectName=$(echo ${dirName}|cut -d '_' -f1) # remove version, e.g. _1.0
+        eval directory=DIRECTORY_\${projectName}
+        if [ -z "${!directory}" ] || [ ${!directory} != ${dirName} ]; then
+            printLog "WARN" "${dirName} config not exist, skip..."
+            continue
+        fi
 
         local tag_array=$(echo ${CURRENT_EXTERNAL_TAG_LIST} | tr " " "\n")
         local previous_tag_array=$(echo ${PREVIOUS_EXTERNAL_TAG_LIST} | tr " " "\n")
@@ -484,7 +497,7 @@ link() {
 
 #####################################
 
-VERSION="1.7"
+VERSION="1.7.1"
 MAIN_DIRECTORY="AsusLauncher"
 MAIN_PROJECT="amax_L/packages/apps/AsusLauncher"
 MAIN_BRANCH="AsusLauncher_1.4_dev AsusLauncher_1.4_beta AsusLauncher_1.4_play"
