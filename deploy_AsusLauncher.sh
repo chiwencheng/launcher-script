@@ -7,7 +7,13 @@ function syncSourceCode {
     local tag=$4
     echo "[START] sync $directory ${tag}"
     if [ ! -d "$directory" ]; then
-        git clone ssh://${USER_NAME}@amax01:29418/${project} -b ${branch} ${directory}
+        var=$(git clone ssh://${USER_NAME}@amax01:29418/${project} -b ${branch} ${directory} 2>&1)
+        if test "${var#*fatal}" != "$var"; then
+            printLog "FATAL" "${var}"
+            exit
+        else
+            printLog "SUCCESS" "${var}"
+        fi
     else
         cd ${directory}
         # repository changed, re-sync project
@@ -68,7 +74,7 @@ function syncSourceCode {
 
         # reset symbolic link for windows
         local symbolicArray=("src" "res" "libs" "proguard.flags")
-        if [ -d "main/java/" ]; then
+        if windows && [ -d "app/src/" ]; then
             for file in ${symbolicArray[@]}
             do
                 if [ -h ${file} ]; then
@@ -109,7 +115,7 @@ function syncSourceCode {
         fi
 
         # set symbolic link for windows
-        if windows && [ -d "main/java/" ]; then
+        if windows && [ -d "app/src/" ]; then
             for file in ${symbolicArray[@]}
             do
                 link_path=$(cat ${file})
@@ -137,7 +143,6 @@ function syncMainSourceCode {
         select opt in ${MAIN_BRANCH}; do
             if test "${MAIN_BRANCH#*$opt}" != "$MAIN_BRANCH"; then
                 syncSourceCode ${directory} ${project} ${opt}
-                printLog "Success" "sync ${directory}"
                 break
             else
                 printLog "ERROR" "wrong branch"
@@ -458,6 +463,9 @@ function printLog {
     ERROR)
       echo "${COLOR_RED}[${type}]${COLOR_RESET} ${message}"
       ;;
+    FATAL)
+      echo "${COLOR_RED}[${type}]${COLOR_RESET} ${message}"
+      ;;
     *)
       echo "[${type}] ${message}"
       ;;
@@ -521,7 +529,7 @@ USER_NAME=$(git config user.email | cut -d '@' -f1 | awk '{print tolower($0)}')
 if [ ! -z "${1}" ]; then
     USER_NAME=${1}
 fi
-echo "[Info] SSH user is $USER_NAME"
+echo "[Info] SSH user is ${COLOR_YELLOW}${USER_NAME}${COLOR_RESET}"
 echo "[Info] Customize SSH user in param 1 if connect fail"
 
 if [ -z "$USER_NAME" ]; then
