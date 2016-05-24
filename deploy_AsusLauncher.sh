@@ -1,5 +1,22 @@
 #!/bin/bash
 
+#####################################
+
+VERSION="1.8"
+MAIN_DIRECTORY="AsusLauncher"
+MAIN_PROJECT="amax_L/packages/apps/AsusLauncher"
+MAIN_BRANCH="AsusLauncher_1.4_dev AsusLauncher_1.4_beta AsusLauncher_1.4_play"
+
+MOUNT_APK_POOL="/mnt/APK_Pool"
+REMOTE_APK_POOL_PATH="//10.78.24.10/AMAX-release/APK_Pool"
+
+COLOR_RED=`tput setaf 1`
+COLOR_GREEN=`tput setaf 2`
+COLOR_YELLOW=`tput setaf 3`
+COLOR_RESET=`tput sgr0`
+
+#####################################
+
 function syncSourceCode {
     local directory=$1
     local project=$2
@@ -64,7 +81,7 @@ function syncSourceCode {
                 git checkout ${file}
             fi
         done
-        for file in $(git status --porcelain | grep "^?? "  | sed -e 's/^[?]* //')
+        for file in $(git status --porcelain | grep "^?? " | sed -e 's/^[?]* //')
         do
             local found=$(echo ${array[*]} | grep ${file})
             if [ "${found}" != "" ]; then
@@ -505,21 +522,6 @@ link() {
 
 #####################################
 
-VERSION="1.7.1"
-MAIN_DIRECTORY="AsusLauncher"
-MAIN_PROJECT="amax_L/packages/apps/AsusLauncher"
-MAIN_BRANCH="AsusLauncher_1.4_dev AsusLauncher_1.4_beta AsusLauncher_1.4_play"
-
-MOUNT_APK_POOL="/mnt/APK_Pool"
-REMOTE_APK_POOL_PATH="//10.78.24.10/AMAX-release/APK_Pool"
-
-COLOR_RED=`tput setaf 1`
-COLOR_GREEN=`tput setaf 2`
-COLOR_YELLOW=`tput setaf 3`
-COLOR_RESET=`tput sgr0`
-
-#####################################
-
 echo "###########################"
 echo "[Info] ${COLOR_YELLOW}version ${VERSION}${COLOR_RESET}"
 
@@ -554,4 +556,3 @@ setExternalAntConfig ${MAIN_DIRECTORY}
 echo "###########################"
 
 echo "[Info] Finish deploy ${MAIN_DIRECTORY}"
-
