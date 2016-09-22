@@ -2,7 +2,7 @@
 
 #####################################
 
-VERSION="1.8"
+VERSION="1.9"
 HOST="amax01.corpnet.asus"
 MAIN_DIRECTORY="AsusLauncher"
 MAIN_PROJECT="amax_N/packages/apps/AsusLauncher"
