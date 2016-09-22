@@ -5,7 +5,7 @@
 VERSION="1.8"
 HOST="amax01.corpnet.asus"
 MAIN_DIRECTORY="AsusLauncher"
-MAIN_PROJECT="amax_L/packages/apps/AsusLauncher"
+MAIN_PROJECT="amax_N/packages/apps/AsusLauncher"
 MAIN_BRANCH="AsusLauncher_1.4_dev AsusLauncher_1.4_beta AsusLauncher_1.4_play"
 
 MOUNT_APK_POOL="/mnt/APK_Pool"
@@ -173,6 +173,48 @@ function syncMainSourceCode {
     if [ -d "$directory" ]; then
         cp ${directory}/scripts/AntBuild/commit-msg ${directory}/.git/hooks/
     fi
+}
+
+function migrateSourceRepository {
+    local directory=$1
+    local project=$2
+
+    if [ ! -d "$directory" ]; then
+        return
+    fi
+
+    cd ${directory}
+    local originUrl=$(git config --get remote.origin.url 2>&1)
+    if [[ ${originUrl} == *"${project}"* ]]; then
+        # echo "[Info] project OK ${project}"
+        cd ..
+        return
+    fi
+    cd ..
+
+    printLog "WARN" "${directory} repository has changed"
+
+
+    if [ -d "${directory}_Backup" ]; then
+        printLog "ERROR" "${directory}_Backup exists, please remove or rename first."
+        exit
+    fi
+
+    echo ""
+    echo "[Info] origin project backup to ${directory}_Backup, please wait ..."
+    cp ${directory} "${directory}_Backup" -r
+
+    cd ${directory}
+    git remote set-url origin ssh://${USER_NAME}@${HOST}:29418/${project}
+    local newUrl=$(git config --get remote.origin.url 2>&1)
+    cd ..
+
+    echo ""
+    echo "[Info] Origin ${directory}_Backup, remove me if no needed."
+    echo "[Info] repository: ${originUrl}"
+    echo "---"
+    echo "[Info] Current ${directory}"
+    echo "[Info] repository: ${newUrl}"
 }
 
 function checkAndExtractAARfiles {
@@ -536,6 +578,8 @@ fi
 echo "###########################"
 
 #####################################
+
+migrateSourceRepository ${MAIN_DIRECTORY} ${MAIN_PROJECT}
 
 syncMainSourceCode ${MAIN_DIRECTORY} ${MAIN_PROJECT}
 echo "###########################"
