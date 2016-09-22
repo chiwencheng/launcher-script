@@ -201,7 +201,7 @@ function migrateSourceRepository {
     fi
 
     echo ""
-    echo "[Info] origin project backup to ${directory}_Backup, please wait ..."
+    echo "[Info] origin project backup to ${directory}_Backup, please wait, it may take a while ..."
     cp ${directory} "${directory}_Backup" -r
 
     cd ${directory}
