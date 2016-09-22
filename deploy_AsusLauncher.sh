@@ -564,7 +564,7 @@ echo "[Info] ${COLOR_YELLOW}version ${VERSION}${COLOR_RESET}"
 
 #####################################
 
-USER_NAME=$(grep "${HOST}" ~/.ssh/config -A2 | grep '^user' | cut -d ' ' -f2)
+USER_NAME=$(grep "${HOST}" ~/.ssh/config -A2 | grep -i '^user' | cut -d ' ' -f2)
 if [ ! -z "${1}" ]; then
     USER_NAME=${1}
 fi
