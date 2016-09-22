@@ -30,7 +30,9 @@ function syncSourceCode {
         cd ${directory}
         # repository changed, re-sync project
         local repostoryChanged=0
-        if [ "$(git config --get remote.origin.url)" != "ssh://${USER_NAME}@${HOST}:29418/${project}" ]; then
+
+        local originUrl=$(git config --get remote.origin.url 2>&1)
+        if [[ ${originUrl} != *"${project}"* ]]; then
             repostoryChanged=1
             printLog "WARN" "repostiory changed ${project}"
         fi
@@ -215,6 +217,10 @@ function migrateSourceRepository {
     echo "---"
     echo "[Info] Current ${directory}"
     echo "[Info] repository: ${newUrl}"
+    echo "---"
+    printLog "WARN" "Remember to check your local branch status"
+    printLog "WARN" "If it contains abnormal merge change, e.g. Merge branch 'xxx' of  ssh://amax01....."
+    printLog "WARN" "Please re-checkout from remote branch"
 }
 
 function checkAndExtractAARfiles {
