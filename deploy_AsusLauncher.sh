@@ -3,6 +3,7 @@
 #####################################
 
 VERSION="1.8"
+HOST="amax01.corpnet.asus"
 MAIN_DIRECTORY="AsusLauncher"
 MAIN_PROJECT="amax_L/packages/apps/AsusLauncher"
 MAIN_BRANCH="AsusLauncher_1.4_dev AsusLauncher_1.4_beta AsusLauncher_1.4_play"
@@ -24,18 +25,12 @@ function syncSourceCode {
     local tag=$4
     echo "[START] sync $directory ${tag}"
     if [ ! -d "$directory" ]; then
-        var=$(git clone ssh://${USER_NAME}@amax01:29418/${project} -b ${branch} ${directory} 2>&1)
-        if test "${var#*fatal}" != "$var"; then
-            printLog "FATAL" "${var}"
-            exit
-        else
-            printLog "SUCCESS" "${var}"
-        fi
+        git clone ssh://${USER_NAME}@${HOST}:29418/${project} -b ${branch} ${directory}
     else
         cd ${directory}
         # repository changed, re-sync project
         local repostoryChanged=0
-        if [ "$(git config --get remote.origin.url)" != "ssh://${USER_NAME}@amax01:29418/${project}" ]; then
+        if [ "$(git config --get remote.origin.url)" != "ssh://${USER_NAME}@${HOST}:29418/${project}" ]; then
             repostoryChanged=1
             printLog "WARN" "repostiory changed ${project}"
         fi
@@ -54,7 +49,7 @@ function syncSourceCode {
                 case ${response} in
                     [yY][eE][sS]|[yY])
                         rm -rf ${directory}
-                        git clone ssh://${USER_NAME}@amax01:29418/${project} -b ${branch} ${directory}
+                        git clone ssh://${USER_NAME}@${HOST}:29418/${project} -b ${branch} ${directory}
                         ;;
                     *)
                         return
@@ -527,7 +522,7 @@ echo "[Info] ${COLOR_YELLOW}version ${VERSION}${COLOR_RESET}"
 
 #####################################
 
-USER_NAME=$(git config user.email | cut -d '@' -f1 | awk '{print tolower($0)}')
+USER_NAME=$(grep "${HOST}" ~/.ssh/config -A2 | grep '^user' | cut -d ' ' -f2)
 if [ ! -z "${1}" ]; then
     USER_NAME=${1}
 fi
